@@ -184,7 +184,7 @@ All scripts in `./scripts/` are meant to be run from the repo root.
 - `./scripts/dev-backend-only-down.sh` — Stop backend-only dev services. Use `--remove` to remove stopped containers or `--all` for `docker compose down`.
 - `./scripts/create-migration.sh` — Create + apply a new Prisma migration in dev via Docker Compose. Typically run as `MIGRATION_NAME=some_change yarn database:migrate:create`.
 - `./scripts/check-env.sh [ENV_FILE]` — Validate required env vars before deploy (defaults to `.env`), including placeholder checks for production-safety.
-- `./scripts/deploy-registry.sh` — Production deploy wrapper for CI/CD images (`check-env` → `pull` → `up -d`) using `docker-compose.yml + docker-compose.prod.yml` and `IMAGE_TAG`.
+- `./scripts/deploy-registry.sh [service ...]` — Production deploy wrapper for CI/CD images (`check-env` → `pull` → `up -d`) using `docker-compose.yml + docker-compose.prod.yml` and `IMAGE_TAG`. If services are provided, only those are pulled/recreated.
 - `./scripts/set-cms-password.sh [ENV_FILE] [PLAIN_PASSWORD]` — Generate Caddy bcrypt hash and update `CMS_BASIC_PASS` in env file (stored in Docker Compose-safe escaped format: `$$2b$$...`). If `PLAIN_PASSWORD` is omitted, it uses `CMS_BASIC_PASS_PLAIN`; if missing, it prompts interactively.
 - `./scripts/generate-secrets.js` — Print random values for `.env` (`POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`). Run `node scripts/generate-secrets.js`.
 - `./scripts/print-env-keys.sh` — Print sorted env var keys present in `.env` (ignores comments/blank lines).

@@ -12,9 +12,9 @@ Telegram bot for safe operational actions over Docker Compose.
 - `TELEGRAM_ALLOWED_CHAT_IDS`
 - `OPS_BOT_ALLOWED_SERVICES`
 - `OPS_BOT_WORKDIR` (default: current working dir)
-- `OPS_BOT_COMPOSE_FILES` (comma-separated; if unset, auto-detects `docker-compose.yml` and adds `docker-compose.override.yml` when present)
+- `OPS_BOT_COMPOSE_FILES` (comma-separated; if unset, bot first tries Compose config files from its own container label, then falls back to `docker-compose.yml` + optional `docker-compose.override.yml`)
 - `OPS_BOT_ENV_FILE`
-- `OPS_BOT_PROJECT_NAME`
+- `OPS_BOT_PROJECT_NAME` (if unset, bot tries to detect Compose project name from its own container label)
 - `OPS_BOT_DEFAULT_LOG_LINES` (default: `120`)
 - `OPS_BOT_MAX_LOG_LINES` (default: `300`)
 - `OPS_BOT_COMMAND_TIMEOUT_MS` (default: `60000`)

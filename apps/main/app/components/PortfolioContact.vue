@@ -58,7 +58,7 @@ async function submit() {
 <template>
   <section id="contact" class="section-anchor contact">
     <h2>Contact</h2>
-    <p class="contact__intro">You can integrate this directly with your backend contact endpoint.</p>
+    <p class="contact__intro">Open to freelance work, product roles, and collaboration. Share a few details and I will reply soon.</p>
     <p class="contact__email">
       Prefer email? <a href="mailto:an.murtuzov@gmail.com">an.murtuzov@gmail.com</a>
     </p>

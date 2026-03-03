@@ -4293,6 +4293,10 @@ __metadata:
 "@site/photos@workspace:apps/photos":
   version: 0.0.0-use.local
   resolution: "@site/photos@workspace:apps/photos"
+  dependencies:
+    nuxt: "npm:^4.1.2"
+    sass: "npm:^1.93.2"
+    typescript: "npm:^5.9.3"
   languageName: unknown
   linkType: soft
 

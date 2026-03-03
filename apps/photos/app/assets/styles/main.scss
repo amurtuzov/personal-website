@@ -1,0 +1,42 @@
+$paper-200: #f2e8dc;
+$ink-900: #23180f;
+$ink-800: #3c2b1f;
+$ink-700: #5a4536;
+$ink-600: #7a6150;
+
+@mixin display-heading($weight: 700) {
+  font-family: 'Fraunces', 'Times New Roman', serif;
+  font-weight: $weight;
+}
+
+@mixin body-text($weight: 400) {
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-weight: $weight;
+}
+
+@mixin page-fade-in {
+  animation: page-fade-in 520ms ease-out both;
+}
+
+@keyframes page-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(0, -14px, 0) scale(1.05);
+  }
+}

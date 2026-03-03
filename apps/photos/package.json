@@ -1,8 +1,20 @@
 {
   "name": "@site/photos",
+  "type": "module",
   "version": "0.0.1",
   "private": true,
+  "packageManager": "yarn@4.6.0",
   "scripts": {
-    "build": "mkdir -p dist && echo '<html><body><h1>Photos placeholder</h1></body></html>' > dist/index.html"
+    "build": "nuxt build",
+    "serve": "nuxt dev --port 8082",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview --port 8082",
+    "postinstall": "nuxt prepare",
+    "typecheck": "nuxt typecheck"
+  },
+  "devDependencies": {
+    "nuxt": "^4.1.2",
+    "sass": "^1.93.2",
+    "typescript": "^5.9.3"
   }
 }

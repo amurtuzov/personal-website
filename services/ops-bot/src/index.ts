@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import os from 'node:os';
@@ -77,11 +77,14 @@ const ALLOWED_SERVICES = new Set(
 const EXPLICIT_COMPOSE_FILES = parseStringList(process.env.OPS_BOT_COMPOSE_FILES);
 const BASE_COMPOSE_FILES = EXPLICIT_COMPOSE_FILES.length ? EXPLICIT_COMPOSE_FILES : ['docker-compose.yml'];
 const COMPOSE_WORKDIR = resolveComposeWorkdir((process.env.OPS_BOT_WORKDIR || '').trim(), BASE_COMPOSE_FILES);
-const COMPOSE_FILES = EXPLICIT_COMPOSE_FILES.length
+const DEFAULT_COMPOSE_FILES = EXPLICIT_COMPOSE_FILES.length
   ? EXPLICIT_COMPOSE_FILES
   : resolveDefaultComposeFiles(COMPOSE_WORKDIR);
 const COMPOSE_ENV_FILE = (process.env.OPS_BOT_ENV_FILE || '').trim();
 const COMPOSE_PROJECT_NAME = (process.env.OPS_BOT_PROJECT_NAME || '').trim();
+let inferredComposeProjectName: string | null = null;
+let inferredComposeFiles: string[] | null = null;
+let composeLabelsDetected = false;
 
 const DEFAULT_LOG_LINES = clampInt(process.env.OPS_BOT_DEFAULT_LOG_LINES, 120, 1, 500);
 const MAX_LOG_LINES = clampInt(process.env.OPS_BOT_MAX_LOG_LINES, 300, 10, 2000);
@@ -252,6 +255,8 @@ bot.on('message', async (msg) => {
 
 console.log('Ops bot started.');
 console.log(`Compose workdir: ${COMPOSE_WORKDIR}`);
+console.log(`Compose files: ${getComposeFiles().join(', ')}`);
+console.log(`Compose project: ${COMPOSE_PROJECT_NAME || getInferredComposeProjectName() || '(default)'}`);
 console.log(`Allowed services: ${Array.from(ALLOWED_SERVICES).sort().join(', ')}`);
 
 async function sendHelp(chatId: number) {
@@ -327,7 +332,7 @@ function clampInt(rawValue: string | undefined, fallback: number, min: number, m
 function buildComposeArgs(commandArgs: string[]): string[] {
   const args: string[] = ['compose'];
 
-  for (const composeFile of COMPOSE_FILES) {
+  for (const composeFile of getComposeFiles()) {
     args.push('-f', composeFile);
   }
 
@@ -335,8 +340,9 @@ function buildComposeArgs(commandArgs: string[]): string[] {
     args.push('--env-file', COMPOSE_ENV_FILE);
   }
 
-  if (COMPOSE_PROJECT_NAME) {
-    args.push('-p', COMPOSE_PROJECT_NAME);
+  const projectName = COMPOSE_PROJECT_NAME || getInferredComposeProjectName();
+  if (projectName) {
+    args.push('-p', projectName);
   }
 
   args.push(...commandArgs);
@@ -912,6 +918,106 @@ function resolveDefaultComposeFiles(workdir: string): string[] {
     files.push('docker-compose.override.yml');
   }
   return files;
+}
+
+function getComposeFiles(): string[] {
+  if (EXPLICIT_COMPOSE_FILES.length > 0) {
+    return EXPLICIT_COMPOSE_FILES;
+  }
+
+  const inferred = getInferredComposeFiles();
+  if (inferred.length > 0) {
+    return inferred;
+  }
+
+  return DEFAULT_COMPOSE_FILES;
+}
+
+function getInferredComposeProjectName(): string {
+  ensureComposeLabelsDetected();
+  if (inferredComposeProjectName === null) return '';
+  return inferredComposeProjectName;
+}
+
+function getInferredComposeFiles(): string[] {
+  ensureComposeLabelsDetected();
+  return inferredComposeFiles || [];
+}
+
+function ensureComposeLabelsDetected(): void {
+  if (composeLabelsDetected) return;
+  composeLabelsDetected = true;
+
+  const containerId = sanitizeContainerId(process.env.HOSTNAME || '');
+  if (!containerId) {
+    inferredComposeProjectName = '';
+    inferredComposeFiles = [];
+    return;
+  }
+
+  try {
+    const result = spawnSync(
+      'docker',
+      ['inspect', '--format', '{{ json .Config.Labels }}', containerId],
+      {
+        env: process.env,
+        encoding: 'utf8',
+        timeout: 3_000,
+      }
+    );
+
+    if (result.error || result.status !== 0) {
+      inferredComposeProjectName = '';
+      inferredComposeFiles = [];
+      return;
+    }
+
+    const rawLabels = (result.stdout || '').trim();
+    if (!rawLabels || rawLabels === 'null' || rawLabels === '<no value>') {
+      inferredComposeProjectName = '';
+      inferredComposeFiles = [];
+      return;
+    }
+
+    const labels = JSON.parse(rawLabels) as Record<string, string>;
+    const projectName = normalizeComposeLabel(labels['com.docker.compose.project']);
+    const configFiles = normalizeComposeLabel(labels['com.docker.compose.project.config_files']);
+
+    inferredComposeProjectName = projectName;
+    inferredComposeFiles = resolveComposeFilesFromLabel(configFiles, COMPOSE_WORKDIR);
+  } catch {
+    inferredComposeProjectName = '';
+    inferredComposeFiles = [];
+  }
+}
+
+function sanitizeContainerId(value: string): string {
+  const trimmed = value.trim();
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(trimmed)) return '';
+  return trimmed;
+}
+
+function normalizeComposeLabel(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === '<no value>') return '';
+  return trimmed;
+}
+
+function resolveComposeFilesFromLabel(configFilesLabel: string, workdir: string): string[] {
+  if (!configFilesLabel) return [];
+
+  const resolved: string[] = [];
+  for (const rawPath of configFilesLabel.split(',')) {
+    const candidate = path.basename(rawPath.trim());
+    if (!candidate) continue;
+    if (!existsSync(path.join(workdir, candidate))) continue;
+    if (!resolved.includes(candidate)) {
+      resolved.push(candidate);
+    }
+  }
+
+  return resolved;
 }
 
 function parseLifecycleSummary(stdout: string, stderr: string): LifecycleSummary {

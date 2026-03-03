@@ -11,9 +11,9 @@ That avoids common OOM failures during `yarn install` + TypeScript/Nest builds.
 
 The repository now includes:
 
-- `.github/workflows/build-and-deploy.yml` — builds/pushes all images to GHCR on `main`, then deploys over SSH.
+- `.github/workflows/build-and-deploy.yml` — staged deploy flow: builds/deploys non-photos images first, waits for backend health, then builds/deploys `photos` so SSG can fetch from a ready backend.
 - `docker-compose.prod.yml` — overrides app services to use `image:` tags for production.
-- `scripts/deploy-registry.sh` — runs `check-env`, `docker compose pull`, and `docker compose up -d --no-build` with `IMAGE_TAG`.
+- `scripts/deploy-registry.sh [service ...]` — runs `check-env`, `docker compose pull`, and `docker compose up -d --no-build` with `IMAGE_TAG`; optionally targets only specified services.
 - The workflow uses path filtering (`dorny/paths-filter`) to build only affected images; `workflow_dispatch` builds all images.
 - Because changed-only builds may not produce every image for a commit SHA, deploys use the rolling `:main` tag for consistency across services.
 
@@ -67,6 +67,9 @@ Optional first manual deploy test:
 ```bash
 echo "<GHCR_PAT>" | docker login ghcr.io -u "<GHCR_USERNAME>" --password-stdin
 IMAGE_TAG=main ./scripts/deploy-registry.sh
+
+# Targeted deploy (example)
+IMAGE_TAG=main ./scripts/deploy-registry.sh backend migrate
 ```
 
 ## What gets containerized
@@ -124,18 +127,18 @@ IMAGE_TAG=<sha> docker compose -f docker-compose.yml -f docker-compose.prod.yml 
 IMAGE_TAG=<sha> docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
 ```
 
-## GitHub Actions flow (build + push)
+## GitHub Actions flow (staged for photos SSG)
 
 High-level pipeline:
 
 1. Checkout repo.
 2. Enable Corepack (Yarn is pinned via `packageManager` in `package.json`).
 3. Compute “what changed” (paths filter).
-4. Build a list/matrix of images to build.
-5. For each image:
-   - Build with Docker Buildx
-   - Push to registry
-   - Use BuildKit cache to speed up subsequent builds
+4. Build/push non-photos images first (`main`, `cms`, `backend`, workers, `migrate`, `ops-bot` as needed).
+5. Deploy changed non-photos services to the droplet.
+6. Wait until backend health endpoint is ready.
+7. Build/push `photos` image.
+8. Deploy `photos` to the droplet.
 
 Recommended caching:
 
