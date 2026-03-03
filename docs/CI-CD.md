@@ -15,6 +15,7 @@ The repository now includes:
 - `docker-compose.prod.yml` — overrides app services to use `image:` tags for production.
 - `scripts/deploy-registry.sh` — runs `check-env`, `docker compose pull`, and `docker compose up -d --no-build` with `IMAGE_TAG`.
 - The workflow uses path filtering (`dorny/paths-filter`) to build only affected images; `workflow_dispatch` builds all images.
+- Because changed-only builds may not produce every image for a commit SHA, deploys use the rolling `:main` tag for consistency across services.
 
 Production image naming convention:
 

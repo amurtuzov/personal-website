@@ -28,10 +28,6 @@ WORKDIR /app/packages/database
 RUN DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres?schema=public" yarn db:generate
 RUN yarn build
 
-# Build backend (kept for consistency with existing worker image)
-WORKDIR /app/services/backend
-RUN yarn build
-
 # Build image-worker
 WORKDIR /app/services/image-worker
 RUN yarn build

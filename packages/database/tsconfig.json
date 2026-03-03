@@ -5,6 +5,7 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "declaration": true,
+    "skipLibCheck": true,
     "outDir": "dist",
   },
   "exclude": [

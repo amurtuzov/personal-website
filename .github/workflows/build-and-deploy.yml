@@ -241,4 +241,4 @@ jobs:
             git checkout main
             git pull --ff-only origin main
             echo "$GHCR_PAT" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
-            IMAGE_REGISTRY=ghcr.io IMAGE_NAMESPACE="$IMAGE_NAMESPACE" IMAGE_TAG="$GITHUB_SHA" ENV_FILE=.env ./scripts/deploy-registry.sh
+            IMAGE_REGISTRY=ghcr.io IMAGE_NAMESPACE="$IMAGE_NAMESPACE" IMAGE_TAG=main ENV_FILE=.env ./scripts/deploy-registry.sh
