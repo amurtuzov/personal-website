@@ -66,6 +66,7 @@ const DEFAULT_ALLOWED_SERVICES = [
   'photos',
   'cms',
   'caddy',
+  'ops-bot',
 ];
 
 const ALLOWED_SERVICES = new Set(

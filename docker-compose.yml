@@ -21,6 +21,11 @@ services:
       - backend
     networks:
       - web
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:2019/config/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   main:
     build:
@@ -146,6 +151,11 @@ services:
         condition: service_completed_successfully
     networks:
       - web
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   email-worker:
     build:
@@ -171,6 +181,11 @@ services:
         condition: service_healthy
     networks:
       - web
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   cleanup-worker:
     build:
@@ -193,6 +208,11 @@ services:
         condition: service_healthy
     networks:
       - web
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   ops-bot:
     build:
@@ -203,7 +223,7 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - TELEGRAM_ALLOWED_USER_IDS=${TELEGRAM_ALLOWED_USER_IDS:-}
       - TELEGRAM_ALLOWED_CHAT_IDS=${TELEGRAM_ALLOWED_CHAT_IDS:-}
-      - OPS_BOT_ALLOWED_SERVICES=${OPS_BOT_ALLOWED_SERVICES:-backend,cleanup-worker,email-worker,image-worker,redis,postgres,minio,migrate}
+      - OPS_BOT_ALLOWED_SERVICES=${OPS_BOT_ALLOWED_SERVICES:-backend,cleanup-worker,email-worker,image-worker,redis,postgres,minio,migrate,main,photos,cms,caddy,ops-bot}
       - OPS_BOT_WORKDIR=${OPS_BOT_WORKDIR:-/workspace}
       - OPS_BOT_COMPOSE_FILES=${OPS_BOT_COMPOSE_FILES:-}
       - OPS_BOT_ENV_FILE=${OPS_BOT_ENV_FILE:-.env}
@@ -214,6 +234,11 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./:/workspace
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   postgres:
     image: postgres:15-alpine
