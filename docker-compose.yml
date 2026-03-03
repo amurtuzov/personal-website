@@ -1,0 +1,276 @@
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - CMS_BASIC_USER=${CMS_BASIC_USER:-}
+      - CMS_BASIC_PASS=${CMS_BASIC_PASS:-}
+    depends_on:
+      - main
+      - photos
+      - cms
+      - backend
+    networks:
+      - web
+
+  main:
+    build:
+      context: .
+      dockerfile: apps/main/Dockerfile
+      args:
+        NUXT_PUBLIC_API_URL: ${NUXT_PUBLIC_API_URL:-http://localhost:4000}
+    restart: unless-stopped
+    ports:
+      - "3000:80"  # Access at http://localhost:3000
+    networks:
+      - web
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  photos:
+    build:
+      context: .
+      dockerfile: apps/photos/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3001:80"  # Access at http://localhost:3001
+    networks:
+      - web
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  cms:
+    build:
+      context: .
+      dockerfile: apps/cms/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:4000}
+    restart: unless-stopped
+    ports:
+      - "3002:80"  # Access at http://localhost:3002
+    networks:
+      - web
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  migrate:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - web
+    restart: "no"
+
+  backend:
+    build:
+      context: .
+      dockerfile: services/backend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "4000:4000"  # Access at http://localhost:4000/api/health
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - S3_ENDPOINT=${S3_ENDPOINT}
+      - S3_PRESIGN_ENDPOINT=${S3_PRESIGN_ENDPOINT:-}
+      - S3_REGION=${S3_REGION}
+      - S3_BUCKET=${S3_BUCKET}
+      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}
+      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - web
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:4000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+
+  image-worker:
+    build:
+      context: .
+      dockerfile: services/image-worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - S3_ENDPOINT=${S3_ENDPOINT}
+      - S3_REGION=${S3_REGION}
+      - S3_BUCKET=${S3_BUCKET}
+      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}
+      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - web
+
+  email-worker:
+    build:
+      context: .
+      dockerfile: services/email-worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - REDIS_URL=${REDIS_URL}
+      - REDIS_HOST=${REDIS_HOST:-}
+      - REDIS_PORT=${REDIS_PORT:-}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_SECURE=${SMTP_SECURE}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - CONTACT_TO=${CONTACT_TO}
+      - CONTACT_FROM=${CONTACT_FROM}
+      - CONTACT_SUBJECT_PREFIX=${CONTACT_SUBJECT_PREFIX}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - web
+
+  cleanup-worker:
+    build:
+      context: .
+      dockerfile: services/cleanup-worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - REDIS_URL=${REDIS_URL}
+      - REDIS_HOST=${REDIS_HOST:-}
+      - REDIS_PORT=${REDIS_PORT:-}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - S3_ENDPOINT=${S3_ENDPOINT}
+      - S3_REGION=${S3_REGION}
+      - S3_BUCKET=${S3_BUCKET}
+      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}
+      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - web
+
+  ops-bot:
+    profiles: ["ops"]
+    build:
+      context: .
+      dockerfile: services/ops-bot/Dockerfile
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_ALLOWED_USER_IDS=${TELEGRAM_ALLOWED_USER_IDS:-}
+      - TELEGRAM_ALLOWED_CHAT_IDS=${TELEGRAM_ALLOWED_CHAT_IDS:-}
+      - OPS_BOT_ALLOWED_SERVICES=${OPS_BOT_ALLOWED_SERVICES:-backend,cleanup-worker,email-worker,image-worker,redis,postgres,minio,migrate}
+      - OPS_BOT_WORKDIR=${OPS_BOT_WORKDIR:-/workspace}
+      - OPS_BOT_COMPOSE_FILES=${OPS_BOT_COMPOSE_FILES:-}
+      - OPS_BOT_ENV_FILE=${OPS_BOT_ENV_FILE:-.env}
+      - OPS_BOT_PROJECT_NAME=${OPS_BOT_PROJECT_NAME:-}
+      - OPS_BOT_DEFAULT_LOG_LINES=${OPS_BOT_DEFAULT_LOG_LINES:-120}
+      - OPS_BOT_MAX_LOG_LINES=${OPS_BOT_MAX_LOG_LINES:-300}
+      - OPS_BOT_COMMAND_TIMEOUT_MS=${OPS_BOT_COMMAND_TIMEOUT_MS:-60000}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/workspace
+
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: photosdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-test_password_123}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - web
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    command:
+      - sh
+      - -c
+      - >
+        if [ -z "$$REDIS_PASSWORD" ]; then
+          echo "REDIS_PASSWORD is required";
+          exit 1;
+        fi;
+        exec redis-server
+        --requirepass "$$REDIS_PASSWORD"
+        --maxmemory 256mb
+        --maxmemory-policy noeviction
+    volumes:
+      - redisdata:/data
+    networks:
+      - web
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
+
+networks:
+  web:
+    driver: bridge

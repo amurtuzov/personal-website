@@ -1,0 +1,10 @@
+.home {
+  display: grid;
+  gap: 40px;
+  @include tablet {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  @include desktop {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}

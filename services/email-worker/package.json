@@ -1,0 +1,20 @@
+{
+  "name": "@site/email-worker",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p .",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "bullmq": "^4.0.0",
+    "mjml": "^4.18.0",
+    "nodemailer": "^6.9.13"
+  },
+  "devDependencies": {
+    "@types/mjml": "^4",
+    "@types/nodemailer": "^6.4.17",
+    "typescript": "^5.4.0"
+  }
+}

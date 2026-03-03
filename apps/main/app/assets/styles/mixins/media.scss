@@ -1,0 +1,23 @@
+@mixin screen($width) {
+  @media only screen and (min-width: $width) {
+    @content;
+  }
+}
+
+@mixin mobileOnly {
+  @media only screen and (max-width: 767px) {
+    @content;
+  }
+}
+
+@mixin tablet {
+  @include screen(768px) {
+    @content;
+  }
+}
+
+@mixin desktop {
+  @include screen(1200px) {
+    @content;
+  }
+}

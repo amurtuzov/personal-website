@@ -1,0 +1,27 @@
+{
+  "name": "@packages/database",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:seed": "tsx prisma/seed.ts",
+    "build": "tsc && yarn copy-files",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "copy-files": "cp -r generated dist/"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.0.1",
+    "@prisma/client": "^7.0.1",
+    "pg": "^8.0.0"
+  },
+  "devDependencies": {
+    "@prisma/config": "^7.0.1",
+    "@types/pg": "^8.0.0",
+    "prisma": "^7.0.1",
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0"
+  }
+}

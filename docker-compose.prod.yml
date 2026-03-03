@@ -1,0 +1,27 @@
+services:
+  main:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-amurtuzov}/personal-website-main:${IMAGE_TAG:-main}
+
+  photos:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-amurtuzov}/personal-website-photos:${IMAGE_TAG:-main}
+
+  cms:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-amurtuzov}/personal-website-cms:${IMAGE_TAG:-main}
+
+  migrate:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-amurtuzov}/personal-website-migrate:${IMAGE_TAG:-main}
+
+  backend:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-amurtuzov}/personal-website-backend:${IMAGE_TAG:-main}
+
+  image-worker:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-amurtuzov}/personal-website-image-worker:${IMAGE_TAG:-main}
+
+  email-worker:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-amurtuzov}/personal-website-email-worker:${IMAGE_TAG:-main}
+
+  cleanup-worker:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-amurtuzov}/personal-website-cleanup-worker:${IMAGE_TAG:-main}
+
+  ops-bot:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-amurtuzov}/personal-website-ops-bot:${IMAGE_TAG:-main}

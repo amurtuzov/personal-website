@@ -1,0 +1,81 @@
+# Main website
+amurtuzov.com, www.amurtuzov.com {
+# Redirect www to non-www
+    @www host www.amurtuzov.com
+    redir @www https://amurtuzov.com{uri} permanent
+
+# Security headers
+    header {
+   # Enable HSTS
+       Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+   # Prevent clickjacking
+       X-Frame-Options "SAMEORIGIN"
+   # Prevent MIME sniffing
+       X-Content-Type-Options "nosniff"
+   # XSS protection
+       X-XSS-Protection "1; mode=block"
+   # Referrer policy
+       Referrer-Policy "strict-origin-when-cross-origin"
+   # Remove server header
+       -Server
+   }
+
+# Enable compression
+    encode gzip zstd
+
+    reverse_proxy main:80
+}
+
+# Photos subdomain
+photos.amurtuzov.com {
+    header {
+       Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+       X-Frame-Options "SAMEORIGIN"
+       X-Content-Type-Options "nosniff"
+       X-XSS-Protection "1; mode=block"
+       Referrer-Policy "strict-origin-when-cross-origin"
+       -Server
+   }
+
+    encode gzip zstd
+
+    reverse_proxy photos:80
+}
+
+# CMS subdomain
+cms.amurtuzov.com {
+    header {
+       Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+       X-Frame-Options "SAMEORIGIN"
+       X-Content-Type-Options "nosniff"
+       X-XSS-Protection "1; mode=block"
+       Referrer-Policy "strict-origin-when-cross-origin"
+       -Server
+   }
+
+    basicauth / {$CMS_BASIC_USER} {$CMS_BASIC_PASS}
+
+    encode gzip zstd
+
+    reverse_proxy cms:80
+}
+
+# API subdomain
+api.amurtuzov.com {
+    header {
+       Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+       X-Content-Type-Options "nosniff"
+       X-XSS-Protection "1; mode=block"
+       -Server
+   }
+
+    encode gzip zstd
+
+# Increase timeouts for uploads
+    reverse_proxy backend:4000 {
+       transport http {
+          read_timeout 5m
+          write_timeout 5m
+      }
+   }
+}

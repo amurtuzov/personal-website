@@ -1,0 +1,33 @@
+.photos-page {
+  &__wrapper {
+    display: grid;
+    gap: 40px;
+    @include tablet {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    @include desktop {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+  &__photo-cover {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    object-position: center;
+    &-mock {
+      width: 100%;
+      aspect-ratio: 1;
+      background: gray;
+    }
+  }
+  &__loader {
+    width: 100%;
+    visibility: hidden;
+    &.active {
+      height: 50px;
+      margin: 30px auto 0;
+      visibility: visible;
+      @include loading(var(--custom-text-color), 50px, 50px);
+    }
+  }
+}

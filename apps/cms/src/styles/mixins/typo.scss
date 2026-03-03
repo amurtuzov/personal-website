@@ -1,0 +1,17 @@
+@mixin Roboto($weight) {
+  font-family: "Roboto", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: $weight;
+  font-style: normal;
+  font-variation-settings:
+          "wdth" 100;
+  font-display: auto;
+}
+
+@mixin Quicksand($weight) {
+  font-family: "Quicksand", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: $weight;
+  font-style: normal;
+  font-display: auto;
+}

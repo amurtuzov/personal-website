@@ -1,0 +1,245 @@
+name: Build And Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  IMAGE_REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: ${{ github.repository_owner }}
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.select-matrix.outputs.matrix }}
+      has_images: ${{ steps.select-matrix.outputs.has_images }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        id: changes
+        if: github.event_name != 'workflow_dispatch'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            shared:
+              - 'package.json'
+              - 'yarn.lock'
+              - '.dockerignore'
+            nginx:
+              - 'infra/nginx/**'
+            main:
+              - 'apps/main/**'
+            photos:
+              - 'apps/photos/**'
+            cms:
+              - 'apps/cms/**'
+            backend:
+              - 'services/backend/**'
+            database:
+              - 'packages/database/**'
+            migrate:
+              - 'infra/Dockerfile'
+            image_worker:
+              - 'services/image-worker/**'
+            email_worker:
+              - 'services/email-worker/**'
+            cleanup_worker:
+              - 'services/cleanup-worker/**'
+            ops_bot:
+              - 'services/ops-bot/**'
+
+      - name: Select image build matrix
+        id: select-matrix
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CHANGED_SHARED: ${{ steps.changes.outputs.shared }}
+          CHANGED_NGINX: ${{ steps.changes.outputs.nginx }}
+          CHANGED_MAIN: ${{ steps.changes.outputs.main }}
+          CHANGED_PHOTOS: ${{ steps.changes.outputs.photos }}
+          CHANGED_CMS: ${{ steps.changes.outputs.cms }}
+          CHANGED_BACKEND: ${{ steps.changes.outputs.backend }}
+          CHANGED_DATABASE: ${{ steps.changes.outputs.database }}
+          CHANGED_MIGRATE: ${{ steps.changes.outputs.migrate }}
+          CHANGED_IMAGE_WORKER: ${{ steps.changes.outputs.image_worker }}
+          CHANGED_EMAIL_WORKER: ${{ steps.changes.outputs.email_worker }}
+          CHANGED_CLEANUP_WORKER: ${{ steps.changes.outputs.cleanup_worker }}
+          CHANGED_OPS_BOT: ${{ steps.changes.outputs.ops_bot }}
+        run: |
+          set -euo pipefail
+
+          add_image() {
+            local candidate="$1"
+            for existing in "${images[@]:-}"; do
+              if [[ "$existing" == "$candidate" ]]; then
+                return 0
+              fi
+            done
+            images+=("$candidate")
+          }
+
+          images=()
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            images=(main photos cms backend image-worker email-worker cleanup-worker migrate ops-bot)
+          elif [[ "$CHANGED_SHARED" == "true" ]]; then
+            images=(main photos cms backend image-worker email-worker cleanup-worker migrate ops-bot)
+          else
+            if [[ "$CHANGED_MAIN" == "true" || "$CHANGED_NGINX" == "true" ]]; then add_image "main"; fi
+            if [[ "$CHANGED_PHOTOS" == "true" || "$CHANGED_NGINX" == "true" ]]; then add_image "photos"; fi
+            if [[ "$CHANGED_CMS" == "true" || "$CHANGED_NGINX" == "true" ]]; then add_image "cms"; fi
+
+            if [[ "$CHANGED_BACKEND" == "true" ]]; then add_image "backend"; fi
+            if [[ "$CHANGED_DATABASE" == "true" ]]; then
+              add_image "backend"
+              add_image "image-worker"
+              add_image "migrate"
+            fi
+            if [[ "$CHANGED_MIGRATE" == "true" ]]; then add_image "migrate"; fi
+
+            if [[ "$CHANGED_IMAGE_WORKER" == "true" ]]; then add_image "image-worker"; fi
+            if [[ "$CHANGED_EMAIL_WORKER" == "true" ]]; then add_image "email-worker"; fi
+            if [[ "$CHANGED_CLEANUP_WORKER" == "true" ]]; then add_image "cleanup-worker"; fi
+            if [[ "$CHANGED_OPS_BOT" == "true" ]]; then add_image "ops-bot"; fi
+          fi
+
+          include='[]'
+          for image in "${images[@]:-}"; do
+            case "$image" in
+              main)
+                dockerfile="apps/main/Dockerfile"
+                build_args="NUXT_PUBLIC_API_URL=https://api.amurtuzov.com"
+                ;;
+              photos)
+                dockerfile="apps/photos/Dockerfile"
+                build_args=""
+                ;;
+              cms)
+                dockerfile="apps/cms/Dockerfile"
+                build_args="VITE_API_URL=https://api.amurtuzov.com"
+                ;;
+              backend)
+                dockerfile="services/backend/Dockerfile"
+                build_args=""
+                ;;
+              image-worker)
+                dockerfile="services/image-worker/Dockerfile"
+                build_args=""
+                ;;
+              email-worker)
+                dockerfile="services/email-worker/Dockerfile"
+                build_args=""
+                ;;
+              cleanup-worker)
+                dockerfile="services/cleanup-worker/Dockerfile"
+                build_args=""
+                ;;
+              migrate)
+                dockerfile="infra/Dockerfile"
+                build_args=""
+                ;;
+              ops-bot)
+                dockerfile="services/ops-bot/Dockerfile"
+                build_args=""
+                ;;
+              *)
+                echo "Unknown image value: $image" >&2
+                exit 1
+                ;;
+            esac
+
+            include="$(jq -c \
+              --arg image "$image" \
+              --arg dockerfile "$dockerfile" \
+              --arg build_args "$build_args" \
+              '. + [{image: $image, dockerfile: $dockerfile, build_args: $build_args}]' \
+              <<<"$include")"
+          done
+
+          matrix="$(jq -c --argjson include "$include" '{include: $include}' <<< '{}')"
+          if [[ "$(jq 'length' <<<"$include")" -gt 0 ]]; then
+            has_images=true
+          else
+            has_images=false
+          fi
+
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "has_images=$has_images" >> "$GITHUB_OUTPUT"
+          echo "Selected build matrix: $matrix"
+
+  build-and-push:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_images == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.image }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/personal-website-${{ matrix.image }}:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/personal-website-${{ matrix.image }}:main
+          build-args: ${{ matrix.build_args }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: [detect-changes, build-and-push]
+    if: |
+      always() &&
+      needs.detect-changes.result == 'success' &&
+      (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Deploy to droplet over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+          IMAGE_NAMESPACE: ${{ github.repository_owner }}
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          port: 22
+          envs: GITHUB_SHA,GHCR_USERNAME,GHCR_PAT,IMAGE_NAMESPACE
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /opt/personal-website
+            git fetch --all --prune
+            git checkout main
+            git pull --ff-only origin main
+            echo "$GHCR_PAT" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+            IMAGE_REGISTRY=ghcr.io IMAGE_NAMESPACE="$IMAGE_NAMESPACE" IMAGE_TAG="$GITHUB_SHA" ENV_FILE=.env ./scripts/deploy-registry.sh

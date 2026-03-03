@@ -1,0 +1,33 @@
+@use '../variables/colors' as *;
+@use './typo' as *;
+
+@mixin borderedCard {
+  background: $bgPanel;
+  border: 1px solid $borderBase;
+  border-radius: 16px;
+}
+
+@mixin field {
+  background: $bgField;
+  border: 1px solid $borderBase;
+  border-radius: 10px;
+  color: $textPrimary;
+  outline: none;
+  transition: border-color 120ms ease;
+
+  &:focus {
+    border-color: $borderStrong;
+  }
+
+  &::placeholder {
+    color: $textFaded;
+  }
+}
+
+@mixin pillButton {
+  @include overline;
+  border-radius: 999px;
+  border: 1px solid $borderStrong;
+  background: #151515;
+  color: #ececec;
+}

@@ -1,0 +1,5 @@
+.version {
+  @include Roboto(400);
+  font-size: 12px;
+  color: var(--custom-text-color);
+}

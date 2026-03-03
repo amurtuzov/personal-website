@@ -1,0 +1,26 @@
+@mixin heading($weight: 700) {
+  font-family: 'Space Grotesk', 'Adjusted Arial Fallback', sans-serif;
+  font-style: normal;
+  font-weight: $weight;
+}
+
+@mixin body($weight: 400) {
+  font-family: 'IBM Plex Sans', 'Adjusted Arial Fallback', sans-serif;
+  font-style: normal;
+  font-weight: $weight;
+}
+
+@mixin overline {
+  @include body(400);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+@font-face {
+  font-family: 'Adjusted Arial Fallback';
+  src: local('Arial');
+  size-adjust: 96%;
+  ascent-override: normal;
+  descent-override: normal;
+  line-gap-override: normal;
+}

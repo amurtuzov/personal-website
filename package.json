@@ -1,0 +1,40 @@
+{
+  "name": "personal-website",
+  "private": true,
+  "author": "amurtuzov <amurtuzov92@gmail.com>",
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build:main": "dotenv -e .env -- corepack yarn workspace @site/main build",
+    "generate:main": "dotenv -e .env -- corepack yarn workspace @site/main generate",
+    "serve:main": "dotenv -e .env -- corepack yarn workspace @site/main serve",
+    "typecheck:main": "dotenv -e .env -- corepack yarn workspace @site/main typecheck",
+    "build:backend": "dotenv -e .env -- corepack yarn workspace @site/backend build",
+    "start:backend": "dotenv -e .env -- corepack yarn workspace @site/backend start",
+    "serve:backend": "dotenv -e .env -- corepack yarn workspace @site/backend dev",
+    "image-worker:build": "dotenv -e .env -- corepack yarn workspace @site/image-worker build",
+    "image-worker:start": "dotenv -e .env -- corepack yarn workspace @site/image-worker start",
+    "worker:build": "dotenv -e .env -- corepack yarn workspace @site/image-worker build",
+    "worker:start": "dotenv -e .env -- corepack yarn workspace @site/image-worker start",
+    "email-worker:build": "dotenv -e .env -- corepack yarn workspace @site/email-worker build",
+    "email-worker:start": "dotenv -e .env -- corepack yarn workspace @site/email-worker start",
+    "cleanup-worker:build": "dotenv -e .env -- corepack yarn workspace @site/cleanup-worker build",
+    "cleanup-worker:start": "dotenv -e .env -- corepack yarn workspace @site/cleanup-worker start",
+    "ops-bot:build": "dotenv -e .env -- corepack yarn workspace @site/ops-bot build",
+    "ops-bot:start": "dotenv -e .env -- corepack yarn workspace @site/ops-bot start",
+    "database:generate": "dotenv -e .env -- corepack yarn workspace @packages/database db:generate",
+    "database:build": "dotenv -e .env -- corepack yarn workspace @packages/database build",
+    "database:migrate": "dotenv -e .env -- corepack yarn workspace @packages/database db:migrate",
+    "database:migrate:create": "MIGRATION_NAME=${MIGRATION_NAME:-new_migration} ./scripts/create-migration.sh",
+    "database:migrate:deploy": "dotenv -e .env -- corepack yarn workspace @packages/database db:migrate:deploy",
+    "database:seed": "dotenv -e .env -- corepack yarn workspace @packages/database db:seed",
+    "env:check": "bash ./scripts/check-env.sh"
+  },
+  "dependencies": {
+    "dotenv-cli": "^11.0.0"
+  },
+  "packageManager": "yarn@4.6.0"
+}

@@ -1,0 +1,15 @@
+.layout {
+  &__title {
+    @include Roboto(500);
+    color: var(--custom-text-color);
+    font-size: 16px;
+    @include tablet {
+      font-size: 20px;
+    }
+  }
+}
+.version {
+  @include Roboto(400);
+  font-size: 12px;
+  color: var(--custom-text-color);
+}

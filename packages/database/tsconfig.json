@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "Es2020",
+    "module": "CommonJS",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "declaration": true,
+    "outDir": "dist",
+  },
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

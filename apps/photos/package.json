@@ -1,0 +1,8 @@
+{
+  "name": "@site/photos",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "mkdir -p dist && echo '<html><body><h1>Photos placeholder</h1></body></html>' > dist/index.html"
+  }
+}

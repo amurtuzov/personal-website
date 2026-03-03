@@ -1,0 +1,27 @@
+.not-found {
+  height: 100%;
+  &__code {
+    @include Roboto(700);
+    color: var(--custom-text-color);
+    font-size: 40px;
+    @include tablet {
+      font-size: 50px;
+    }
+    @include desktop {
+      font-size: 70px;
+    }
+  }
+  &__link {
+    @include Roboto(400);
+    color: var(--custom-text-color);
+    text-decoration: underline;
+    font-size: 14px;
+    cursor: pointer;
+    @include tablet {
+      font-size: 18px;
+    }
+    @include desktop {
+      font-size: 22px;
+    }
+  }
+}
