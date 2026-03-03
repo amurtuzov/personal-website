@@ -88,6 +88,7 @@ node_env="$(get_env_or_empty NODE_ENV)"
 jwt_secret="$(get_env_or_empty JWT_SECRET)"
 cms_user="$(get_env_or_empty CMS_BASIC_USER)"
 cms_pass="$(get_env_or_empty CMS_BASIC_PASS)"
+cms_pass_decoded="${cms_pass//\$\$/\$}"
 nuxt_api_url="$(get_env_or_empty NUXT_PUBLIC_API_URL)"
 vite_api_url="$(get_env_or_empty VITE_API_URL)"
 database_url="$(get_env_or_empty DATABASE_URL)"
@@ -117,6 +118,14 @@ fi
 cms_len="$(printf %s "${cms_pass}" | wc -c | tr -d ' ')"
 if [ "${cms_len}" -lt 12 ]; then
   errors+=("CMS_BASIC_PASS should be at least 12 characters.")
+fi
+
+if [ "${node_env}" = "production" ] && [[ ! "${cms_pass_decoded}" =~ ^\$2[aby]\$ ]]; then
+  errors+=("CMS_BASIC_PASS must be a bcrypt hash for Caddy basic_auth in production.")
+fi
+
+if [ "${node_env}" = "production" ] && [[ "${cms_pass_decoded}" =~ ^\$2[aby]\$ ]] && [ "${cms_pass}" = "${cms_pass_decoded}" ]; then
+  errors+=("CMS_BASIC_PASS must escape '\$' as '\$\$' in .env for Docker Compose. Run ./scripts/set-cms-password.sh ${ENV_FILE}.")
 fi
 
 if [[ "${nuxt_api_url}" == *"localhost"* ]]; then

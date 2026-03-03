@@ -53,7 +53,9 @@ cms.amurtuzov.com {
        -Server
    }
 
-    basicauth / {$CMS_BASIC_USER} {$CMS_BASIC_PASS}
+    basic_auth {
+       {$CMS_BASIC_USER} {$CMS_BASIC_PASS}
+   }
 
     encode gzip zstd
 

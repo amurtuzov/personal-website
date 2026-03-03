@@ -195,7 +195,6 @@ services:
       - web
 
   ops-bot:
-    profiles: ["ops"]
     build:
       context: .
       dockerfile: services/ops-bot/Dockerfile
