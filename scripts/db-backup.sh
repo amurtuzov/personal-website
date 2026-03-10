@@ -108,7 +108,7 @@ echo "Creating PostgreSQL dump (db=${PGDATABASE}, user=${PGUSER})..."
 "${compose_base[@]}" exec -T postgres pg_dump -U "${PGUSER}" -d "${PGDATABASE}" -Fc --no-owner --no-privileges > "${new_dump}"
 
 echo "Validating dump integrity..."
-"${compose_base[@]}" exec -T postgres pg_restore --list - < "${new_dump}" >/dev/null
+"${compose_base[@]}" exec -T postgres pg_restore --list < "${new_dump}" >/dev/null
 
 checksum="$(sha256_file "${new_dump}")"
 printf '%s  %s\n' "${checksum}" "latest.dump" > "${new_sha}"
