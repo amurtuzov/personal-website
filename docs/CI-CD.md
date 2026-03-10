@@ -11,7 +11,7 @@ That avoids common OOM failures during `yarn install` + TypeScript/Nest builds.
 
 The repository now includes:
 
-- `.github/workflows/build-and-deploy.yml` — staged deploy flow: builds/deploys non-photos images first, waits for backend health, then builds/deploys `photos` so SSG can fetch from a ready backend.
+- `.github/workflows/build-and-deploy.yml` — parallel-capable build matrix flow: builds/pushes changed images in one matrix, then deploys only changed services over SSH.
 - `docker-compose.prod.yml` — overrides app services to use `image:` tags for production.
 - `scripts/deploy-registry.sh [service ...]` — runs `check-env`, `docker compose pull`, and `docker compose up -d --no-build` with `IMAGE_TAG`; optionally targets only specified services.
 - The workflow uses path filtering (`dorny/paths-filter`) to build only affected images; `workflow_dispatch` builds all images.
@@ -127,18 +127,15 @@ IMAGE_TAG=<sha> docker compose -f docker-compose.yml -f docker-compose.prod.yml 
 IMAGE_TAG=<sha> docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
 ```
 
-## GitHub Actions flow (staged for photos SSG)
+## GitHub Actions flow (parallel-capable matrix)
 
 High-level pipeline:
 
 1. Checkout repo.
 2. Enable Corepack (Yarn is pinned via `packageManager` in `package.json`).
 3. Compute “what changed” (paths filter).
-4. Build/push non-photos images first (`main`, `cms`, `backend`, workers, `migrate`, `ops-bot` as needed).
-5. Deploy changed non-photos services to the droplet.
-6. Wait until backend health endpoint is ready.
-7. Build/push `photos` image.
-8. Deploy `photos` to the droplet.
+4. Build/push changed images in a single matrix (parallel per service).
+5. Deploy only the changed services to the droplet.
 
 Recommended caching:
 

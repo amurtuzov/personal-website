@@ -44,7 +44,7 @@ export default defineNuxtConfig({
     public: {
       siteName: 'Anar Murtuzov - Software Developer (Web / Full Stack, Frontend)',
       siteDescription: 'Portfolio of Anar Murtuzov, software developer with 8+ years of experience in frontend and full-stack web development: Vue.js, Nuxt.js, TypeScript, React, Node.js, Docker, CI/CD, and AI-assisted delivery workflows.',
-      baseURL: 'https://anarmurtuzov.com',
+      baseURL: 'https://amurtuzov.com',
       apiURL: publicApiUrl,
       contactEndpoint,
     },

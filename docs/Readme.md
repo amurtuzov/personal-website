@@ -72,13 +72,15 @@ The backend exposes a public contact form endpoint that **queues** email sending
   "email": "jane@example.com",
   "message": "Hello!",
   "subject": "Optional subject",
-  "website": ""
+  "website": "",
+  "formStartedAt": "2026-03-10T08:41:22.000Z"
 }
 ```
 
 Notes:
 - `website` is a honeypot field for bots. Keep it empty in the real form.
-- The backend applies throttling to reduce spam.
+- `formStartedAt` is required and used to detect bot-speed submissions.
+- The backend enforces JSON payloads, origin allowlists, and throttling.
 
 ### Environment Variables
 
@@ -92,6 +94,9 @@ Set these in `.env` (see `.env.local.example` / `.env.production.example`):
 - `CONTACT_TO` (where contact messages are delivered)
 - `CONTACT_FROM` (usually the same as `SMTP_USER` for Gmail)
 - `CONTACT_SUBJECT_PREFIX` (optional, default `[Contact Form]`)
+- `CORS_ALLOWED_ORIGINS` (comma-separated allowlist for API CORS)
+- `FORM_ALLOWED_ORIGINS` (comma-separated allowlist for form submissions)
+- `FORM_MIN_SUBMISSION_MS` / `FORM_MAX_SUBMISSION_MS` (timing trap window)
 
 ### Running Locally (Docker Compose)
 
@@ -107,7 +112,7 @@ docker compose up -d redis backend email-worker
 ```bash
 curl -i -X POST http://localhost:4000/api/contact \
   -H 'Content-Type: application/json' \
-  -d '{"name":"Test","email":"test@example.com","message":"Hello from curl!"}'
+  -d '{"name":"Test","email":"test@example.com","message":"Hello from curl!","formStartedAt":"2026-03-10T08:41:22.000Z"}'
 ```
 
 ### Google SMTP (Recommended Setup)
@@ -155,6 +160,93 @@ Run in Docker Compose (optional):
 docker compose up -d ops-bot
 ```
 
+## Production Maintenance (Droplet)
+
+### 1) Docker log rotation (prevents log files from filling disk)
+
+Run on droplet as root:
+
+```bash
+sudo apt-get install -y jq
+cd /opt/personal-website
+sudo ./scripts/setup-docker-log-rotation.sh
+```
+
+Defaults configured by the script:
+- `max-size=10m`
+- `max-file=5`
+
+That keeps at most ~50MB logs per container JSON log stream.
+
+### 2) Nightly backup + image prune via cron (Asia/Tashkent)
+
+Install cron entries:
+
+```bash
+cd /opt/personal-website
+./scripts/setup-maintenance-cron.sh
+```
+
+Default schedules:
+- DB backup: `03:30` (`Asia/Tashkent`)
+- Docker image prune: `04:10` (`Asia/Tashkent`)
+
+Logs:
+- `/opt/personal-website/logs/maintenance/db-backup.log`
+- `/opt/personal-website/logs/maintenance/docker-image-prune.log`
+
+Telegram notifications:
+- A success notification is sent after each completed cron job (backup and image prune).
+- Notifications use `TELEGRAM_BOT_TOKEN` and send to `TELEGRAM_ALLOWED_CHAT_IDS` if set, otherwise to `TELEGRAM_ALLOWED_USER_IDS`.
+
+### 3) Where PostgreSQL volume lives
+
+In Compose, Postgres uses the named volume `pgdata` mounted to `/var/lib/postgresql/data` in container.
+
+- Compose declaration: `postgres -> volumes: - pgdata:/var/lib/postgresql/data`
+- On host, Docker stores it under `/var/lib/docker/volumes/<project>_pgdata/_data`
+
+Useful commands:
+
+```bash
+docker volume ls | grep pgdata
+docker volume inspect personal-website_pgdata
+```
+
+### 4) Backup usage
+
+Create backup manually:
+
+```bash
+cd /opt/personal-website
+ENV_FILE=.env ./scripts/db-backup.sh
+```
+
+Retention policy:
+- Local: `latest.dump` + `previous.dump`
+- Spaces: `latest.dump` + `previous.dump`
+- On new successful backup, old `latest` is moved to `previous`.
+
+### 5) Restore usage (safe default)
+
+Restore to separate database (recommended):
+
+```bash
+cd /opt/personal-website
+ENV_FILE=.env ./scripts/db-restore.sh
+```
+
+This restores `latest.dump` into `<live_db>_restore` (for checks/dev/staging-style testing) and does not touch live DB.
+
+Restore to live DB (dangerous, explicit only):
+
+```bash
+cd /opt/personal-website
+ENV_FILE=.env ./scripts/db-restore.sh --to-live --yes-live
+```
+
+Only run live restore during controlled maintenance.
+
 ## Local Dev: Backend in Docker, Frontend on Host
 
 If you want to develop the frontends locally (hot reload) while keeping the backend + dependencies in Docker, use the helper scripts:
@@ -185,6 +277,14 @@ All scripts in `./scripts/` are meant to be run from the repo root.
 - `./scripts/create-migration.sh` — Create + apply a new Prisma migration in dev via Docker Compose. Typically run as `MIGRATION_NAME=some_change yarn database:migrate:create`.
 - `./scripts/check-env.sh [ENV_FILE]` — Validate required env vars before deploy (defaults to `.env`), including placeholder checks for production-safety.
 - `./scripts/deploy-registry.sh [service ...]` — Production deploy wrapper for CI/CD images (`check-env` → `pull` → `up -d`) using `docker-compose.yml + docker-compose.prod.yml` and `IMAGE_TAG`. If services are provided, only those are pulled/recreated.
+- `./scripts/db-backup.sh` — Create PostgreSQL custom-format dump and keep two rotating backups (`latest` + `previous`) locally and in Spaces (if enabled).
+- `./scripts/db-restore.sh` — Restore PostgreSQL dump. Safe default restores into a separate DB; live restore requires explicit flags.
+- `./scripts/notify-telegram.sh --text "..."` — Send a Telegram notification using credentials from `.env`.
+- `./scripts/cron-db-backup.sh` — Cron wrapper for DB backup + success notification.
+- `./scripts/cron-image-prune.sh` — Cron wrapper for image prune + success notification.
+- `./scripts/docker-image-prune-safe.sh` — Safe image-only prune with lock + deploy-activity guard (never touches volumes).
+- `./scripts/setup-maintenance-cron.sh` — Install/update cron entries for nightly backup and image prune (timezone-aware via `CRON_TZ`).
+- `./scripts/setup-docker-log-rotation.sh` — Configure Docker daemon JSON log rotation (`max-size`, `max-file`) and restart Docker.
 - `./scripts/set-cms-password.sh [ENV_FILE] [PLAIN_PASSWORD]` — Generate Caddy bcrypt hash and update `CMS_BASIC_PASS` in env file (stored in Docker Compose-safe escaped format: `$$2b$$...`). If `PLAIN_PASSWORD` is omitted, it uses `CMS_BASIC_PASS_PLAIN`; if missing, it prompts interactively.
 - `./scripts/generate-secrets.js` — Print random values for `.env` (`POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`). Run `node scripts/generate-secrets.js`.
 - `./scripts/print-env-keys.sh` — Print sorted env var keys present in `.env` (ignores comments/blank lines).

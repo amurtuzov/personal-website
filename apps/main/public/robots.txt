@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://anarmurtuzov.com/sitemap.xml
+Sitemap: https://amurtuzov.com/sitemap.xml

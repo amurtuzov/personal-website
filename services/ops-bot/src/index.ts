@@ -1,6 +1,6 @@
-import { spawn, spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import {spawn, spawnSync} from 'node:child_process';
+import {existsSync} from 'node:fs';
+import {readFile} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import TelegramBot from 'node-telegram-bot-api';
@@ -318,6 +318,7 @@ function parseStringList(rawValue?: string): string[] {
     .filter(Boolean);
 }
 
+
 function isAllowedService(service: string): boolean {
   if (!service) return false;
   if (!/^[a-z0-9][a-z0-9._-]*$/i.test(service)) return false;
@@ -430,9 +431,7 @@ async function resolveTargetServices(rawArgs: string): Promise<string[]> {
     .filter(Boolean);
 
   const uniqueRequested = Array.from(new Set(requested));
-  const allowed = uniqueRequested.filter((service) => isAllowedService(service));
-
-  return allowed;
+  return uniqueRequested.filter((service) => isAllowedService(service));
 }
 
 async function sendCommandResult(chatId: number, title: string, result: ComposeExecResult) {
@@ -546,6 +545,7 @@ async function sendMonitor(chatId: number) {
     await sendPreformatted(chatId, `${pressure.level} checks`, pressure.notes.join('\n'));
   }
 }
+
 
 async function sendLifecycleResult(
   chatId: number,

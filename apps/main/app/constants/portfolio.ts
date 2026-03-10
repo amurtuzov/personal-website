@@ -58,7 +58,7 @@ export const experiences: ExperienceItem[] = [
     workFormat: 'Remote',
     summary:
       'Led frontend direction for high-load products including control panels, analytics interfaces, and interactive web applications. Drove maintainable architecture decisions and mentored engineers to improve delivery quality and consistency.',
-    tags: ['Vue', 'TypeScript', 'High-load UI', 'Mentoring'],
+    tags: ['Vue', 'React', 'TypeScript', 'Mentoring', 'Node.js', 'Docker'],
   },
   {
     period: 'Oct 2023 - Present',

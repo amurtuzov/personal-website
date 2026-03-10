@@ -8,6 +8,7 @@ const form = reactive({
   message: '',
   website: '',
 })
+const formStartedAt = ref(new Date().toISOString())
 
 const isSubmitting = ref(false)
 const status = ref<'idle' | 'success' | 'error'>('idle')
@@ -34,6 +35,7 @@ async function submit() {
         subject: form.subject,
         message: form.message,
         website: form.website,
+        formStartedAt: formStartedAt.value,
       },
     })
 
@@ -43,10 +45,25 @@ async function submit() {
     form.subject = ''
     form.message = ''
     form.website = ''
+    formStartedAt.value = new Date().toISOString()
   }
   catch (error) {
     status.value = 'error'
-    errorText.value = 'Unable to send message right now. Please try again.'
+    const err = error as {
+      status?: number
+      statusCode?: number
+      response?: { status?: number }
+    }
+    const httpStatus = Number(err.status || err.statusCode || err.response?.status || 0)
+    if (httpStatus === 429) {
+      errorText.value = 'Too many attempts. Please wait a minute and try again.'
+    }
+    else if (httpStatus === 403 || httpStatus === 415) {
+      errorText.value = 'Submission failed security checks. Please refresh and try again.'
+    }
+    else {
+      errorText.value = 'Unable to send message right now. Please try again.'
+    }
     console.error('Contact form submission failed:', error)
   }
   finally {

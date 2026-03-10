@@ -20,11 +20,16 @@ export class ContactService {
     body: ContactMessageDto,
     meta: { ip?: string; userAgent?: string }
   ) {
+    const name = body.name.trim();
+    const email = body.email.trim().toLowerCase();
+    const message = body.message.trim();
+    const subject = body.subject?.trim();
+
     const data: ContactEmailJobData = {
-      name: body.name,
-      email: body.email,
-      message: body.message,
-      subject: body.subject,
+      name,
+      email,
+      message,
+      subject: subject || undefined,
       ip: meta.ip,
       userAgent: meta.userAgent,
       createdAtIso: new Date().toISOString(),
@@ -40,4 +45,3 @@ export class ContactService {
     return { jobId: job.id };
   }
 }
-
