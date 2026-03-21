@@ -115,7 +115,12 @@ export class S3Service {
   getPublicUrl(key: string): string {
     // If CDN URL is configured, use it
     if (this.publicUrl) {
-      return `https://${this.publicUrl}/${key}`;
+      const normalizedHost = this.publicUrl
+        .trim()
+        .replace(/^https?:\/\//i, '')
+        .replace(/\/+$/, '');
+      const normalizedKey = key.replace(/^\/+/, '');
+      return `https://${normalizedHost}/${normalizedKey}`;
     }
 
     // MinIO local development

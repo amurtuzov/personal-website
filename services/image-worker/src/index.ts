@@ -1,5 +1,6 @@
 import { Worker, Job } from "bullmq";
 import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import type { PutObjectCommandInput } from "@aws-sdk/client-s3";
 import sharp from "sharp";
 import type { Metadata } from "sharp";
 import exifReader from "exif-reader";
@@ -18,6 +19,9 @@ const region = process.env.S3_REGION || 'us-east-1';
 const endpoint = process.env.S3_ENDPOINT;
 const accessKeyId = process.env.S3_ACCESS_KEY_ID;
 const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+const configuredObjectAcl = process.env.S3_OBJECT_ACL?.trim();
+const defaultObjectAcl = endpoint?.includes('digitaloceanspaces.com') ? 'public-read' : undefined;
+const objectAcl = (configuredObjectAcl || defaultObjectAcl) as PutObjectCommandInput['ACL'] | undefined;
 const redisUrl = process.env.REDIS_URL;
 const redisHost = process.env.REDIS_HOST || "redis";
 const redisPort = process.env.REDIS_PORT ? Number(process.env.REDIS_PORT) : 6379;
@@ -43,6 +47,9 @@ const s3 = new S3Client({
 });
 
 console.log(`S3 Client initialized: ${endpoint || 'AWS S3'} / ${bucket}`);
+if (objectAcl) {
+  console.log(`S3 object ACL enabled for variants: ${objectAcl}`);
+}
 
 // ---- Types ----
 interface GenerateVariantsData {
@@ -410,6 +417,7 @@ const worker = new Worker(
           Bucket: bucket!,
           Key: webKey,
           Body: webBuffer,
+          ...(objectAcl ? { ACL: objectAcl } : {}),
           ContentType: "image/webp",
           CacheControl: "public, max-age=31536000, immutable",
         })
@@ -420,6 +428,7 @@ const worker = new Worker(
           Bucket: bucket!,
           Key: thumbKey,
           Body: thumbBuffer,
+          ...(objectAcl ? { ACL: objectAcl } : {}),
           ContentType: "image/webp",
           CacheControl: "public, max-age=31536000, immutable",
         })
