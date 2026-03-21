@@ -1,5 +1,14 @@
 import { z } from 'zod';
 
+const emptyToUndefined = (value: unknown) => {
+  if (typeof value === 'string' && value.trim() === '') {
+    return undefined;
+  }
+  return value;
+};
+
+const optionalUrl = z.preprocess(emptyToUndefined, z.string().url().optional());
+
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().default(4000),
@@ -37,10 +46,10 @@ export const envSchema = z.object({
   REDIS_PASSWORD: z.string().min(12, 'REDIS_PASSWORD must be at least 12 characters'),
   S3_BUCKET: z.string(),
   S3_REGION: z.string().default('us-east-1'),
-  S3_ENDPOINT: z.string().url().optional(),
-  S3_PRESIGN_ENDPOINT: z.string().url().optional(),
-  S3_PUBLIC_URL: z.string().optional(),
-  S3_OBJECT_ACL: z.string().optional(),
+  S3_ENDPOINT: optionalUrl,
+  S3_PRESIGN_ENDPOINT: optionalUrl,
+  S3_PUBLIC_URL: z.preprocess(emptyToUndefined, z.string().optional()),
+  S3_OBJECT_ACL: z.preprocess(emptyToUndefined, z.string().optional()),
   S3_ACCESS_KEY_ID: z.string(),
   S3_SECRET_ACCESS_KEY: z.string(),
 });
