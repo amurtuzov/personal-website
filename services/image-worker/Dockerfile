@@ -7,18 +7,11 @@ RUN corepack enable && corepack prepare yarn@4.6.0 --activate
 
 # Copy package files
 COPY package.json yarn.lock .yarnrc.yml ./
-COPY apps/main/package.json ./apps/main/
-COPY apps/photos/package.json ./apps/photos/
-COPY apps/cms/package.json ./apps/cms/
-COPY services/backend/package.json ./services/backend/
 COPY services/image-worker/package.json ./services/image-worker/
-COPY services/email-worker/package.json ./services/email-worker/
-COPY services/cleanup-worker/package.json ./services/cleanup-worker/
-COPY services/ops-bot/package.json ./services/ops-bot/
 COPY packages/database/package.json ./packages/database/
 
-# Install dependencies
-RUN yarn install --immutable
+# Install only dependencies needed to build image-worker + shared database package
+RUN yarn workspaces focus @site/image-worker @packages/database
 
 # Copy source code
 COPY . .
@@ -38,18 +31,16 @@ FROM node:22-bookworm AS runtime
 # Ensure Yarn is available (repo uses Corepack + `packageManager`)
 RUN corepack enable && corepack prepare yarn@4.6.0 --activate
 
+# HEIC/HEIF decode fallback utility used by image-worker at runtime
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends libheif-examples \
+  && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Install production dependencies only
 COPY package.json yarn.lock .yarnrc.yml ./
-COPY apps/main/package.json ./apps/main/
-COPY apps/photos/package.json ./apps/photos/
-COPY apps/cms/package.json ./apps/cms/
-COPY services/backend/package.json ./services/backend/
 COPY services/image-worker/package.json ./services/image-worker/
-COPY services/email-worker/package.json ./services/email-worker/
-COPY services/cleanup-worker/package.json ./services/cleanup-worker/
-COPY services/ops-bot/package.json ./services/ops-bot/
 COPY packages/database/package.json ./packages/database/
 
 RUN yarn workspaces focus @site/image-worker --production
@@ -59,10 +50,6 @@ COPY --from=builder /app/services/image-worker/dist ./services/image-worker/dist
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
 COPY --from=builder /app/packages/database/generated ./packages/database/generated
 COPY --from=builder /app/packages/database/prisma ./packages/database/prisma
-
-# Copy necessary config files
-COPY packages/database/package.json ./packages/database/
-COPY services/image-worker/package.json ./services/image-worker/
 
 ENV NODE_ENV=production
 WORKDIR /app/services/image-worker
