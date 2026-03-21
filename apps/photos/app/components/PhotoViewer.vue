@@ -48,6 +48,7 @@ const dragStartPanY = ref(0)
 
 const photoSrc = computed(() => props.photo.webUrl || props.photo.thumbUrl || '')
 const photoAlt = computed(() => props.photo.title || 'Photo')
+const isImageReady = computed(() => Boolean(photoSrc.value && imageRef.value))
 const isZoomed = computed(() => zoom.value > MIN_ZOOM + 0.001)
 const canZoomIn = computed(() => zoom.value < MAX_ZOOM - 0.001)
 const canZoomOut = computed(() => zoom.value > MIN_ZOOM + 0.001)
@@ -149,15 +150,17 @@ const setZoom = (
 }
 
 const zoomIn = () => {
+  if (!isImageReady.value) return
   setZoom(zoom.value + ZOOM_STEP)
 }
 
 const zoomOut = () => {
+  if (!isImageReady.value) return
   setZoom(zoom.value - ZOOM_STEP)
 }
 
 const onStageWheel = (event: WheelEvent) => {
-  if (!photoSrc.value) return
+  if (!photoSrc.value || !isImageReady.value) return
 
   const direction = event.deltaY < 0 ? 1 : -1
   setZoom(zoom.value + direction * ZOOM_STEP, {
@@ -167,7 +170,7 @@ const onStageWheel = (event: WheelEvent) => {
 }
 
 const onStageDoubleClick = (event: MouseEvent) => {
-  if (!photoSrc.value) return
+  if (!photoSrc.value || !isImageReady.value) return
 
   const target = event.target as HTMLElement | null
   if (target?.closest('.viewer-zoom-controls')) return
@@ -184,6 +187,7 @@ const onStageDoubleClick = (event: MouseEvent) => {
 }
 
 const onPointerDown = (event: PointerEvent) => {
+  if (!isImageReady.value) return
   if (!isZoomed.value) return
   if (event.pointerType === 'mouse' && event.button !== 0) return
 
@@ -384,7 +388,10 @@ onBeforeUnmount(() => {
         <div
           ref="stageRef"
           class="viewer-image-wrap"
-          :class="{ 'viewer-image-wrap--dragging': isDragging }"
+          :class="{
+            'viewer-image-wrap--dragging': isDragging,
+            'viewer-image-wrap--loading': photoSrc && !isImageReady,
+          }"
           @wheel.prevent="onStageWheel"
           @dblclick.prevent="onStageDoubleClick"
           @pointerdown="onPointerDown"
@@ -395,24 +402,44 @@ onBeforeUnmount(() => {
         >
           <NuxtImg
             v-if="photoSrc"
-            class="viewer-image"
+            :key="photo.id || photoSrc"
             :src="photoSrc"
             :alt="photoAlt"
             :width="photo.width || undefined"
             :height="photo.height || undefined"
             loading="eager"
             decoding="async"
-            :style="imageTransformStyle"
             densities="x1 x2"
             sizes="100vw two:100vw three:100vw four:100vw"
-            draggable="false"
-            @load="onImageLoad"
-            @dragstart.prevent
-            @contextmenu.prevent
-          />
+            custom
+            v-slot="{ src, isLoaded, imgAttrs }"
+          >
+            <img
+              :class="['viewer-image', { 'viewer-image--loaded': isLoaded }]"
+              v-bind="imgAttrs"
+              :src="src"
+              :style="imageTransformStyle"
+              draggable="false"
+              @load="onImageLoad"
+              @dragstart.prevent
+              @contextmenu.prevent
+            >
+
+            <div v-if="!isLoaded" class="viewer-loader" aria-hidden="true">
+              <div class="viewer-loader__pulse-grid">
+                <span />
+                <span />
+                <span />
+              </div>
+            </div>
+          </NuxtImg>
+
+          <div v-else class="viewer-fallback">
+            Photo unavailable
+          </div>
 
           <div
-            v-if="photoSrc"
+            v-if="photoSrc && isImageReady"
             class="viewer-zoom-controls"
             role="group"
             aria-label="Photo zoom controls"
@@ -420,24 +447,24 @@ onBeforeUnmount(() => {
           >
             <button
               type="button"
-              class="viewer-chip viewer-chip--square"
-              :disabled="!canZoomOut"
+              class="viewer-chip viewer-chip--square viewer-chip--overlay"
+              :disabled="!isImageReady || !canZoomOut"
               @click.stop="zoomOut"
             >
               −
             </button>
             <button
               type="button"
-              class="viewer-chip viewer-chip--zoom"
-              :disabled="!isZoomed"
+              class="viewer-chip viewer-chip--zoom viewer-chip--overlay"
+              :disabled="!isImageReady || !isZoomed"
               @click.stop="resetZoom"
             >
               {{ zoomPercent }}
             </button>
             <button
               type="button"
-              class="viewer-chip viewer-chip--square"
-              :disabled="!canZoomIn"
+              class="viewer-chip viewer-chip--square viewer-chip--overlay"
+              :disabled="!isImageReady || !canZoomIn"
               @click.stop="zoomIn"
             >
               +
@@ -581,6 +608,10 @@ onBeforeUnmount(() => {
   touch-action: none;
 }
 
+.viewer-image-wrap--loading {
+  cursor: progress;
+}
+
 .viewer-image-wrap--dragging {
   cursor: grabbing;
 }
@@ -596,6 +627,12 @@ onBeforeUnmount(() => {
   -webkit-user-select: none;
   -webkit-user-drag: none;
   -webkit-touch-callout: none;
+  opacity: 0;
+  transition: opacity 0.32s ease;
+}
+
+.viewer-image--loaded {
+  opacity: 1;
 }
 
 .viewer-image-canvas {
@@ -611,6 +648,44 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   color: #b6bfcc;
+}
+
+.viewer-loader {
+  position: absolute;
+  inset: 8px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  background:
+    radial-gradient(circle at 20% 22%, rgba(123, 147, 176, 0.16), transparent 48%),
+    radial-gradient(circle at 82% 78%, rgba(89, 114, 141, 0.14), transparent 44%),
+    linear-gradient(120deg, rgba(8, 11, 15, 0.82), rgba(18, 25, 34, 0.66));
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(1px);
+  pointer-events: none;
+}
+
+.viewer-loader__pulse-grid {
+  display: inline-flex;
+  gap: 8px;
+
+  span {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(214, 224, 236, 0.9);
+    opacity: 0.2;
+    animation: viewer-pulse 1.1s ease-in-out infinite;
+
+    &:nth-child(2) {
+      animation-delay: 0.14s;
+    }
+
+    &:nth-child(3) {
+      animation-delay: 0.28s;
+    }
+  }
 }
 
 .viewer-meta {
@@ -690,6 +765,24 @@ onBeforeUnmount(() => {
   min-width: 76px;
 }
 
+.viewer-chip--overlay {
+  background: rgba(7, 9, 12, 0.54);
+  border-color: rgba(255, 255, 255, 0.14);
+
+  &:hover:not(:disabled) {
+    background: rgba(7, 9, 12, 0.7);
+    border-color: rgba(255, 255, 255, 0.24);
+  }
+
+  &:disabled {
+    opacity: 1;
+    color: rgba(148, 160, 176, 0.55);
+    background: rgba(7, 9, 12, 0.8);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.38);
+  }
+}
+
 .viewer-zoom-hint {
   position: absolute;
   left: 16px;
@@ -704,6 +797,18 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   pointer-events: none;
 }
+
+@keyframes viewer-pulse {
+  0%, 80%, 100% {
+    opacity: 0.2;
+    transform: scale(1);
+  }
+  40% {
+    opacity: 0.95;
+    transform: scale(1.2);
+  }
+}
+
 
 @media (min-width: 1024px) {
   .viewer-main {
