@@ -35,6 +35,7 @@ jobs:
               - '.dockerignore'
             nginx:
               - 'infra/nginx/**'
+              - 'infra/Caddyfile'
             main:
               - 'apps/main/**'
             photos:
@@ -187,7 +188,7 @@ jobs:
             fi
           }
 
-          if [[ "$CHANGED_NGINX" == "true" ]]; then
+          if [[ "$CHANGED_NGINX" == "true" || "$EVENT_NAME" == "workflow_dispatch" ]]; then
             append_service_arg "caddy"
           fi
 
