@@ -39,7 +39,7 @@ photos.amurtuzov.com {
 
     encode gzip zstd
 
-    reverse_proxy photos:80
+    reverse_proxy photos:3000
 }
 
 # CMS subdomain

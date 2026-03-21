@@ -1,18 +1,19 @@
-import { mount } from '@vue/test-utils'
+import type { Router } from 'vue-router'
 import { createTestingPinia } from '@pinia/testing'
-import MainLayout from '@/layouts/MainLayout/MainLayout.vue'
-import { createRouter, createWebHistory, Router } from 'vue-router'
-import { routes } from '@/router'
+import { mount } from '@vue/test-utils'
+import { createRouter, createWebHistory } from 'vue-router'
 import SvgIcon from '@/components/SvgIcon/SvgIcon.vue'
+import MainLayout from '@/layouts/MainLayout/MainLayout.vue'
+import { routes } from '@/router'
 
 describe('MainLayout.vue', () => {
   let router: Router
   beforeEach(async () => {
     router = createRouter({
       history: createWebHistory(),
-      routes: routes,
+      routes,
     })
-    router.push('/login')
+    router.push('/auth')
     await router.isReady()
   })
   it('Renders correctly', () => {

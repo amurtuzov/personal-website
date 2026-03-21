@@ -77,7 +77,7 @@ async function submit() {
     <h2>Contact</h2>
     <p class="contact__intro">Open to freelance work, product roles, and collaboration. Share a few details and I will reply soon.</p>
     <p class="contact__email">
-      Prefer email? <a href="mailto:an.murtuzov@gmail.com">an.murtuzov@gmail.com</a>
+      Prefer email? <a href="mailto:an.murtuzov@gmail.com">Send email</a>
     </p>
 
     <form class="contact__form" @submit.prevent="submit">

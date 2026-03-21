@@ -6,15 +6,21 @@
   "packageManager": "yarn@4.6.0",
   "scripts": {
     "build": "nuxt build",
-    "serve": "nuxt dev --port 8082",
+    "serve": "nuxt dev --host 127.0.0.1 --port 8082",
     "generate": "nuxt generate",
-    "preview": "nuxt preview --port 8082",
+    "preview": "nuxt preview --host 127.0.0.1 --port 8082",
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck"
   },
   "devDependencies": {
-    "nuxt": "^4.1.2",
+    "@vue/compiler-sfc": "^3.5.30",
+    "nuxt": "^4.4.2",
     "sass": "^1.93.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite": "^8.0.1",
+    "vue-tsc": "^3.2.6"
+  },
+  "dependencies": {
+    "@nuxt/image": "^2.0.0"
   }
 }

@@ -1,6 +1,16 @@
 import { server } from './mock/server'
 
 vi.stubGlobal('scroll', vi.fn())
+vi.stubGlobal('matchMedia', vi.fn().mockImplementation((query: string) => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addListener: vi.fn(),
+  removeListener: vi.fn(),
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
+  dispatchEvent: vi.fn(),
+})))
 Element.prototype.scrollTo = () => vi.fn()
 HTMLMediaElement.prototype.play = () => new Promise(vi.fn())
 HTMLMediaElement.prototype.pause = () => new Promise(vi.fn())

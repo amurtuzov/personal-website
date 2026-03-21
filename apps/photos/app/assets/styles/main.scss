@@ -5,12 +5,12 @@ $ink-700: #5a4536;
 $ink-600: #7a6150;
 
 @mixin display-heading($weight: 700) {
-  font-family: 'Fraunces', 'Times New Roman', serif;
+  font-family: 'Lora', 'Times New Roman', serif;
   font-weight: $weight;
 }
 
 @mixin body-text($weight: 400) {
-  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-family: 'Sora', 'Segoe UI', sans-serif;
   font-weight: $weight;
 }
 

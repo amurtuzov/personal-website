@@ -1,25 +1,22 @@
 <script setup lang="ts">
+
 const { siteName, siteDescription, baseURL } = useRuntimeConfig().public
-const canonicalUrl = `${baseURL.replace(/\/$/, '')}/`
 
 useSeoMeta({
-  title: siteName,
+  titleTemplate: (chunk) => chunk ? `${chunk} | ${siteName}` : siteName,
   description: siteDescription,
   ogTitle: siteName,
   ogDescription: siteDescription,
   ogType: 'website',
-  ogUrl: canonicalUrl,
+  ogUrl: `${baseURL.replace(/\/$/, '')}/`,
   twitterCard: 'summary_large_image',
   twitterTitle: siteName,
   twitterDescription: siteDescription,
 })
 
 useHead({
-  link: [
-    { rel: 'canonical', href: canonicalUrl },
-  ],
   meta: [
-    { name: 'theme-color', content: '#f2e8dc' },
+    { name: 'theme-color', content: '#e9dccd' },
     { name: 'robots', content: 'index, follow' },
   ],
 })
@@ -42,7 +39,7 @@ body {
   margin: 0;
   color: $ink-900;
   @include body-text(400);
-  background: $paper-200;
+  background: linear-gradient(165deg, #efe3d5 0%, #e4d8c8 100%);
 }
 
 * {

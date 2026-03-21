@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Anar Murtuzov | Mobile Contact</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+  </head>
+  <body>
+    <section class="mobile-stage">
+      <div class="mobile-frame">
+        <header class="mobile-topbar">
+          <div class="mobile-brand-wrap">
+            <img class="mobile-logo-chip" src="./logo-anar.svg" alt="" aria-hidden="true" />
+            <p class="mobile-brand-name">Anar Murtuzov</p>
+          </div>
+          <a class="burger burger-open" href="./mobile-menu.html" aria-label="Open menu">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 7.5H20" stroke="currentColor" stroke-linecap="round" />
+              <path d="M4 12H20" stroke="currentColor" stroke-linecap="round" />
+              <path d="M4 16.5H15" stroke="currentColor" stroke-linecap="round" />
+            </svg>
+          </a>
+        </header>
+        <main class="mobile-main">
+          <img class="mobile-about-photo" src="https://picsum.photos/seed/anar-mobile-portrait/900/1100" alt="Portrait of Anar Murtuzov" />
+          <h2 class="mobile-heading">Get in touch</h2>
+          <p class="mobile-about-copy">Photography is my hobby and I do it for myself. I mostly photograph on walks and trips, and this app is my personal visual diary.</p>
+          <form class="mobile-form">
+            <label for="m-name">Name</label>
+            <input id="m-name" type="text" />
+            <label for="m-email">Email</label>
+            <input id="m-email" type="email" />
+            <label for="m-message">Message</label>
+            <textarea id="m-message"></textarea>
+            <button type="button">Send message</button>
+          </form>
+        </main>
+      </div>
+    </section>
+  </body>
+</html>

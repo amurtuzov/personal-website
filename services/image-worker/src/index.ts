@@ -4,7 +4,12 @@ import sharp from "sharp";
 import type { Metadata } from "sharp";
 import exifReader from "exif-reader";
 import { prismaClient, disconnectPrisma } from '@packages/database';
+import { execFile } from "child_process";
+import { promises as fs } from "fs";
+import os from "os";
+import path from "path";
 import { Readable } from "stream";
+import { promisify } from "util";
 import url from "url";
 
 // --- Env sanity checks ---
@@ -44,6 +49,8 @@ interface GenerateVariantsData {
   photoId: number | string;
   s3Key: string;
 }
+
+const execFileAsync = promisify(execFile);
 
 // ---- Helpers ----
 function streamToBuffer(stream: Readable | Buffer): Promise<Buffer> {
@@ -88,6 +95,64 @@ function withExtension(key: string, extension: string): string {
     return `${key.slice(0, lastDot)}${normalizedExt}`;
   }
   return `${key}${normalizedExt}`;
+}
+
+function isHeifSourceKey(key: string): boolean {
+  return /\.(heic|heif)$/i.test(key);
+}
+
+function isHeifDecodePluginError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err ?? "");
+  return /No decoding plugin installed for this compression format/i.test(message);
+}
+
+async function convertHeifToJpegBuffer(inputBuffer: Buffer, photoId: number | string): Promise<Buffer> {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), `heif-${String(photoId)}-`));
+  const inputPath = path.join(tempDir, "source.heic");
+  const outputPath = path.join(tempDir, "source.jpg");
+
+  try {
+    await fs.writeFile(inputPath, inputBuffer);
+    await execFileAsync("heif-convert", ["-q", "100", inputPath, outputPath], {
+      timeout: 30_000,
+      windowsHide: true,
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    return await fs.readFile(outputPath);
+  } catch (err) {
+    let stderr = "";
+    if (err && typeof err === "object" && "stderr" in err) {
+      const maybeStderr = (err as { stderr?: unknown }).stderr;
+      if (typeof maybeStderr === "string") {
+        stderr = maybeStderr.trim();
+      } else if (Buffer.isBuffer(maybeStderr)) {
+        stderr = maybeStderr.toString("utf8").trim();
+      }
+    }
+
+    const details = stderr ? ` stderr="${stderr}"` : "";
+    throw new Error(`heif-convert failed for photo ${photoId}.${details}`);
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function generateWebVariants(inputBuffer: Buffer): Promise<{ webBuffer: Buffer; thumbBuffer: Buffer }> {
+  const base = sharp(inputBuffer).rotate();
+
+  const webBuffer = await base
+    .clone()
+    .resize({ width: 2560, withoutEnlargement: true })
+    .webp({ quality: 100 })
+    .toBuffer();
+
+  const thumbBuffer = await base
+    .clone()
+    .resize({ width: 600, withoutEnlargement: true })
+    .webp({ quality: 100 })
+    .toBuffer();
+
+  return { webBuffer, thumbBuffer };
 }
 
 // ---- EXIF (safe subset) ----
@@ -278,11 +343,25 @@ const worker = new Worker(
 
       const body = res.Body as Readable | Buffer;
       const buffer = await streamToBuffer(body);
+      let processingBuffer = buffer;
+      let usedHeifConvertFallback = false;
 
       console.log(`Downloaded ${s3Key}, size: ${buffer.length} bytes`);
 
       // 2. Get original image metadata
-      const metadata = await sharp(buffer).metadata();
+      let metadata: Metadata;
+      try {
+        metadata = await sharp(processingBuffer).metadata();
+      } catch (err) {
+        if (isHeifSourceKey(s3Key) && isHeifDecodePluginError(err)) {
+          console.warn(`HEIC/HEIF metadata decode failed for ${s3Key}; retrying via heif-convert`);
+          processingBuffer = await convertHeifToJpegBuffer(buffer, photoId);
+          usedHeifConvertFallback = true;
+          metadata = await sharp(processingBuffer).metadata();
+        } else {
+          throw err;
+        }
+      }
       const rawWidth = metadata.width || 1600;
       const rawHeight = metadata.height || 1200;
       const hasRotatedOrientation = (metadata.orientation ?? 0) >= 5;
@@ -301,21 +380,25 @@ const worker = new Worker(
       }
 
       // 3. Generate resized versions
-      const base = sharp(buffer).rotate();
+      let webBuffer: Buffer;
+      let thumbBuffer: Buffer;
+      try {
+        ({ webBuffer, thumbBuffer } = await generateWebVariants(processingBuffer));
+      } catch (err) {
+        if (!usedHeifConvertFallback && isHeifSourceKey(s3Key) && isHeifDecodePluginError(err)) {
+          console.warn(`HEIC/HEIF variant decode failed for ${s3Key}; retrying via heif-convert`);
+          processingBuffer = await convertHeifToJpegBuffer(buffer, photoId);
+          usedHeifConvertFallback = true;
+          ({ webBuffer, thumbBuffer } = await generateWebVariants(processingBuffer));
+        } else {
+          throw err;
+        }
+      }
 
-      const webBuffer = await base
-        .clone()
-        .resize({ width: 2560, withoutEnlargement: true })
-        .webp({ quality: 82 })
-        .toBuffer();
-
-      const thumbBuffer = await base
-        .clone()
-        .resize({ width: 600, withoutEnlargement: true })
-        .webp({ quality: 70 })
-        .toBuffer();
-
-      console.log(`Generated variants: web=${webBuffer.length}b, thumb=${thumbBuffer.length}b`);
+      console.log(
+        `Generated variants: web=${webBuffer.length}b, thumb=${thumbBuffer.length}b`
+        + (usedHeifConvertFallback ? " (heif-convert fallback)" : "")
+      );
 
       // 4. Generate new S3 keys
       const webKey = withExtension(s3Key.replace("originals/", "web/"), "webp");

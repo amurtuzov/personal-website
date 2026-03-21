@@ -1,20 +1,51 @@
 <script setup lang="ts">
-import type { PhotoWithUrls } from '~/types/photos'
+import type { AlbumWithPhotos, PhotoWithUrls } from '~/types/photos'
 
+const route = useRoute()
 const { siteName, siteDescription, baseURL, apiURL } = useRuntimeConfig().public
 const apiBase = apiURL.replace(/\/$/, '')
-const canonicalUrl = `${baseURL.replace(/\/$/, '')}/`
+const slug = String(route.params.slug || '').trim()
+
+if (!slug) {
+  throw createError({ statusCode: 404, statusMessage: 'Album not found' })
+}
+
+const { data: albumData, error: albumError } = await useFetch<AlbumWithPhotos>(
+  `${apiBase}/api/albums/slug/${encodeURIComponent(slug)}`,
+  { method: 'GET', key: `album-${slug}` }
+)
+
+if (albumError.value) {
+  const err = albumError.value as {
+    status?: number
+    statusCode?: number
+    response?: { status?: number }
+  }
+  const statusCode = Number(err.status || err.statusCode || err.response?.status || 500)
+  throw createError({
+    statusCode,
+    statusMessage: statusCode === 404 ? 'Album not found' : 'Failed to load album',
+  })
+}
+
+const album = albumData.value
+if (!album?.id) {
+  throw createError({ statusCode: 404, statusMessage: 'Album not found' })
+}
+
+const canonicalUrl = `${baseURL.replace(/\/$/, '')}/album/${slug}`
+const pageDescription = album.description || siteDescription
 
 useSeoMeta({
-  title: 'Home',
-  description: siteDescription,
-  ogTitle: `${siteName} | Home`,
-  ogDescription: siteDescription,
+  title: album.title,
+  description: pageDescription,
+  ogTitle: `${siteName} | ${album.title}`,
+  ogDescription: pageDescription,
   ogType: 'website',
   ogUrl: canonicalUrl,
   twitterCard: 'summary_large_image',
-  twitterTitle: `${siteName} | Home`,
-  twitterDescription: siteDescription,
+  twitterTitle: `${siteName} | ${album.title}`,
+  twitterDescription: pageDescription,
 })
 
 useHead(() => ({
@@ -24,9 +55,10 @@ useHead(() => ({
 const sentinel = ref<HTMLElement | null>(null)
 const grid = ref<HTMLElement | null>(null)
 
-const { items, loadMore, pending, loadingMore, finished, total } = await useInfiniteList<PhotoWithUrls>(`${apiBase}/api/photos`, {
-    pageSize: 10,
-  })
+const { items, loadMore, pending, loadingMore, finished, total } = await useInfiniteList<PhotoWithUrls>(
+  `${apiBase}/api/albums/${album.id}/photos`,
+  { pageSize: 10 }
+)
 
 useInfiniteIntersection(sentinel, () => {
   void loadMore()
@@ -53,8 +85,17 @@ const {
   loadMore,
   loadingMore,
   finished,
-  returnUrl: '/',
+  returnUrl: `/album/${slug}`,
 })
+
+const getPhotoSrc = (photo: PhotoWithUrls) => photo.webUrl || photo.thumbUrl || ''
+const getPhotoAlt = (photo: PhotoWithUrls) => photo.title || `${album.title} photo`
+const getPhotoRatio = (photo: PhotoWithUrls) => {
+  if (photo.width && photo.height && photo.width > 0 && photo.height > 0) {
+    return `${photo.width} / ${photo.height}`
+  }
+  return '4 / 3'
+}
 
 const totalPhotos = computed(() => {
   if (typeof total.value === 'number') {
@@ -63,21 +104,18 @@ const totalPhotos = computed(() => {
   return items.value.length
 })
 
-const getPhotoSrc = (photo: PhotoWithUrls) => photo.webUrl || photo.thumbUrl || ''
-const getPhotoAlt = (photo: PhotoWithUrls) => photo.title || 'Photo'
-const getPhotoRatio = (photo: PhotoWithUrls) => {
-  if (photo.width && photo.height && photo.width > 0 && photo.height > 0) {
-    return `${photo.width} / ${photo.height}`
-  }
-
-  return '4 / 3'
-}
-
+const photosLabel = computed(() => totalPhotos.value === 1 ? 'photo' : 'photos')
 </script>
 
 <template>
-  <section class="home-page">
-    <section ref="grid" class="photo-grid" aria-label="Photos feed">
+  <section class="album-page">
+    <header class="album-header">
+      <h1>{{ album.title }}</h1>
+      <p v-if="album.description">{{ album.description }}</p>
+      <p class="album-header__meta">{{ totalPhotos }} {{ photosLabel }}</p>
+    </header>
+
+    <section ref="grid" class="photo-grid" aria-label="Album photos feed">
       <article
         v-for="(photo, index) in items"
         :key="photo.id"
@@ -119,6 +157,7 @@ const getPhotoRatio = (photo: PhotoWithUrls) => {
               aria-hidden="true"
             />
           </NuxtImg>
+
           <div v-else class="photo-fallback">
             <span>Photo unavailable</span>
           </div>
@@ -131,7 +170,7 @@ const getPhotoRatio = (photo: PhotoWithUrls) => {
     </p>
 
     <p v-else-if="!items.length && finished" class="state-line">
-      No photos yet.
+      No photos in this album yet.
     </p>
 
     <div ref="sentinel" class="sentinel" aria-hidden="true" />
@@ -141,7 +180,7 @@ const getPhotoRatio = (photo: PhotoWithUrls) => {
     </p>
 
     <p v-if="items.length && finished" class="state-line">
-      End of list.
+      End of album list.
     </p>
 
     <PhotoViewer
@@ -150,7 +189,7 @@ const getPhotoRatio = (photo: PhotoWithUrls) => {
       :current-shot="currentViewerIndex + 1"
       :total-shots="totalPhotos"
       :show-controls="true"
-      back-label="Back to feed"
+      back-label="Back to album"
       :can-go-prev="canGoPrev"
       :can-go-next="canGoNext"
       :is-loading-next="isLoadingNext"
@@ -163,9 +202,37 @@ const getPhotoRatio = (photo: PhotoWithUrls) => {
 </template>
 
 <style lang="scss" scoped>
-
-.home-page {
+.album-page {
   padding: 30px 44px 56px;
+}
+
+.album-header {
+  margin-bottom: 24px;
+
+  h1 {
+    margin: 0;
+    font-family: 'Lora', serif;
+    font-size: 42px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    color: #161b21;
+  }
+
+  p {
+    margin: 8px 0 0;
+    color: #67727d;
+    max-width: 760px;
+    line-height: 1.5;
+    font-size: 15px;
+    @include body-text(400);
+  }
+
+  &__meta {
+    margin-top: 10px;
+    font-size: 13px;
+    color: #67727d;
+    @include body-text(500);
+  }
 }
 
 .photo-grid {
@@ -173,13 +240,12 @@ const getPhotoRatio = (photo: PhotoWithUrls) => {
   gap: 8px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-auto-flow: dense;
+
   > * {
     align-self: start;
   }
 }
 
-/* Progressive enhancement (WebKit Option 3):
-   fallback grid remains production-ready, grid-lanes upgrades where supported. */
 @supports (display: grid-lanes) {
   .photo-grid {
     display: grid-lanes;
@@ -273,6 +339,7 @@ const getPhotoRatio = (photo: PhotoWithUrls) => {
   margin: 24px 0 0;
   color: #66707a;
   font-size: 13px;
+  @include body-text(400);
 }
 
 .sentinel {
@@ -299,8 +366,20 @@ const getPhotoRatio = (photo: PhotoWithUrls) => {
 }
 
 @media (max-width: 1024px) {
-  .home-page {
+  .album-page {
     padding: 16px 12px 24px;
+  }
+
+  .album-header {
+    margin-bottom: 16px;
+
+    h1 {
+      font-size: 34px;
+    }
+
+    p {
+      font-size: 14px;
+    }
   }
 }
 </style>

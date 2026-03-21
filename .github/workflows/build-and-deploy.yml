@@ -172,6 +172,25 @@ jobs:
 
           service_args="$(jq -r 'map(.image) | join(" ")' <<<"$include")"
 
+          append_service_arg() {
+            local candidate="$1"
+            for existing in $service_args; do
+              if [[ "$existing" == "$candidate" ]]; then
+                return 0
+              fi
+            done
+
+            if [[ -n "$service_args" ]]; then
+              service_args="$service_args $candidate"
+            else
+              service_args="$candidate"
+            fi
+          }
+
+          if [[ "$CHANGED_NGINX" == "true" ]]; then
+            append_service_arg "caddy"
+          fi
+
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "has_images=$has_images" >> "$GITHUB_OUTPUT"
           echo "service_args=$service_args" >> "$GITHUB_OUTPUT"
