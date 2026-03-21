@@ -44,6 +44,7 @@ export default defineNuxtConfig({
   },
 
   image: {
+    provider: 'none',
     format: ['webp'],
     screens: {
       two: 769,
