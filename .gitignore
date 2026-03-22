@@ -37,3 +37,9 @@ docker-compose.override.local.yml
 # Prisma generated client
 packages/database/generated
 packages/database/dist
+
+# Local docs notes
+docs/go-stack-replacement-map.md
+
+# Figma exports / scratch
+docs/figma/
