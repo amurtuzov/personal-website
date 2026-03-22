@@ -2,6 +2,10 @@
 import type { PhotoWithUrls } from '~/types/photos'
 
 type ExifRecord = Record<string, unknown>
+type ExifRow = {
+  label: string
+  value: string
+}
 
 const props = withDefaults(defineProps<{
   photo: PhotoWithUrls
@@ -309,41 +313,43 @@ const cameraPart = computed(() => {
   return make || model || ''
 })
 
-const shotDateIso = computed(() => {
-  if (!props.photo.takenAt) return ''
-  const parsed = new Date(props.photo.takenAt)
-  if (Number.isNaN(parsed.getTime())) return ''
-  return parsed.toISOString().slice(0, 10)
-})
-
-const exifText = computed(() => {
-  const parts: string[] = []
+const exifRows = computed<ExifRow[]>(() => {
+  const rows: ExifRow[] = []
 
   const camera = cameraPart.value
-  if (camera) parts.push(camera)
+  if (camera) {
+    rows.push({ label: 'Camera', value: camera })
+  }
 
   const lensModel = getExifString('lensModel')
-  if (lensModel) parts.push(lensModel)
+  if (lensModel) {
+    rows.push({ label: 'Lens', value: lensModel })
+  }
 
   const focalLength = getExifNumber('focalLength')
-  if (focalLength !== null) parts.push(`${formatNumber(focalLength)}mm`)
+  if (focalLength !== null) {
+    rows.push({ label: 'Focal length', value: `${formatNumber(focalLength)}mm` })
+  }
 
   const fNumber = getExifNumber('fNumber')
-  if (fNumber !== null) parts.push(`f/${formatNumber(fNumber)}`)
+  if (fNumber !== null) {
+    rows.push({ label: 'Aperture', value: `f/${formatNumber(fNumber)}` })
+  }
 
   const shutterSpeed = getExifString('shutterSpeed')
-  if (shutterSpeed) parts.push(shutterSpeed)
+  if (shutterSpeed) {
+    rows.push({ label: 'Shutter speed', value: shutterSpeed })
+  }
 
   const iso = getExifNumber('iso')
-  if (iso !== null) parts.push(`ISO ${Math.round(iso)}`)
+  if (iso !== null) {
+    rows.push({ label: 'ISO', value: String(Math.round(iso)) })
+  }
 
-  if (shotDateIso.value) parts.push(shotDateIso.value)
-  if (props.photo.locationName) parts.push(props.photo.locationName)
-
-  return parts.join(' · ')
+  return rows
 })
 
-const hasExif = computed(() => Boolean(exifText.value))
+const hasExif = computed(() => exifRows.value.length > 0)
 
 watch(() => props.photo.id, () => {
   resetZoom()
@@ -480,7 +486,6 @@ onBeforeUnmount(() => {
           <div class="viewer-meta">
             <div class="viewer-title-row">
               <h2 class="viewer-title">{{ photo.title || 'Untitled photo' }}</h2>
-              <span v-if="shotCounter" class="viewer-counter">{{ shotCounter }}</span>
             </div>
 
             <p v-if="shotMeta" class="viewer-shot">{{ shotMeta }}</p>
@@ -489,10 +494,21 @@ onBeforeUnmount(() => {
               {{ photo.description }}
             </p>
 
-            <p v-if="hasExif" class="viewer-exif">{{ exifText }}</p>
+            <div v-if="hasExif" class="viewer-exif">
+              <p
+                v-for="row in exifRows"
+                :key="row.label"
+                class="viewer-exif-row"
+              >
+                <span class="viewer-exif-label">{{ row.label }}:</span>
+                <span class="viewer-exif-value">{{ row.value }}</span>
+              </p>
+            </div>
           </div>
 
           <div class="viewer-nav">
+            <p v-if="shotCounter" class="viewer-counter viewer-counter--bottom">{{ shotCounter }}</p>
+
             <template v-if="showControls">
               <button
                 type="button"
@@ -691,6 +707,9 @@ onBeforeUnmount(() => {
 .viewer-meta {
   color: #d3d8df;
   max-width: 980px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .viewer-title-row {
@@ -709,7 +728,7 @@ onBeforeUnmount(() => {
 }
 
 .viewer-shot {
-  margin: 8px 0 0;
+  margin: 0;
   font-size: 13px;
   color: #a7afbb;
 }
@@ -719,8 +738,13 @@ onBeforeUnmount(() => {
   color: #a7afbb;
 }
 
+.viewer-counter--bottom {
+  margin: 0 0 2px;
+  width: 100%;
+}
+
 .viewer-description {
-  margin: 8px 0 0;
+  margin: 0;
   color: #aeb6c2;
   font-size: 13px;
   line-height: 160%;
@@ -733,10 +757,30 @@ onBeforeUnmount(() => {
 }
 
 .viewer-exif {
-  margin: 8px 0 0;
+  margin: 0;
   color: #98a1ae;
   font-size: 12px;
   line-height: 160%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.viewer-exif-row {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.viewer-exif-label {
+  color: #8f99a7;
+  min-width: 92px;
+}
+
+.viewer-exif-value {
+  color: #a8b2c0;
+  word-break: break-word;
 }
 
 .viewer-nav {
